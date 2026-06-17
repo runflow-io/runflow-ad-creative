@@ -1,0 +1,12 @@
+{
+  "_comment": "Schema template only. The runflow-ad-creative skill must skip this file when enumerating brand kits. Copy to <your-slug>.json and replace every value before use.",
+  "slug": "example",
+  "name": "Example Brand",
+  "logo_url": null,
+  "logo_path": null,
+  "primary_color": "#09090B",
+  "accent_color": "#FBBF24",
+  "typeface": "Outfit",
+  "default_tone": "premium",
+  "voice_notes": "Sentence case headlines; no em-dashes; vary openers across batches."
+}
