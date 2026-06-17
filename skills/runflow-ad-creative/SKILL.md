@@ -170,7 +170,28 @@ pick one.
 
 ## Step 3 — Copy stack
 
-Ask in one structured message:
+### 3a — Offer to draft (opt-in only)
+
+Before asking the user to type copy, offer to draft from a one-line brief:
+
+`Want me to draft 3 copy options from a one-line brief, or do you have copy ready?`
+- `Draft from a brief` — they describe the event/offer/audience in one line, you
+  draft 3 options for headline + 3 for subhead + 3 for CTA. Present as numbered
+  lists. They pick #1 / #2 / #3 per field, edit, or roll again.
+- `I have copy ready` — go straight to the field prompt below.
+
+**The drafting step is always an offer.** Never auto-draft without an explicit
+"draft from a brief" answer. Users who already have copy must be able to skip
+this in one click.
+
+When drafting, follow the brand kit's `voice_notes` + the universal rules embedded
+in `tools/lint_copy.py` (no em-dashes, no banned vocab, sentence case, etc.).
+Pull CTA suggestions from `cta-library.json` matched to the brief's intent
+(try-first / buy / book / apply / learn / watch / read).
+
+### 3b — Collect the copy
+
+Either after the user picks a drafted option OR straight from them:
 
 ```
 Drop the copy:
@@ -179,8 +200,27 @@ Drop the copy:
   CTA:         (1–3 words)
 ```
 
-Apply the brand kit's `voice_notes` as a soft check (e.g. flag em-dashes, suggest sentence
-case if the voice notes say so) but do not rewrite without confirmation.
+### 3c — Lint gate (always on, never skipped)
+
+Run the lint before generation:
+
+```bash
+python3 .claude/skills/runflow-ad-creative/tools/lint_copy.py \
+  --headline "<H>" --subhead "<S>" --cta "<C>"
+```
+
+Output is JSON: `{ violations: [...], summary: { block, warn }, clean: bool }`.
+
+- `clean: true` → proceed to Step 4.
+- `summary.block > 0` → surface the violations to the user, show the `fix_hint`
+  for each, ask them to revise OR explicitly confirm "ship anyway". Never silently
+  bypass.
+- `summary.warn > 0` only (no blocks) → mention briefly, proceed unless the user
+  wants to revise.
+
+Apply the brand kit's `voice_notes` on top as a soft check for brand-specific
+rules (a kit might say "uppercase ok" or "exclamation marks fine" — only the
+brand kit can override the embedded rules).
 
 ## Step 4 — Tone (separate question)
 

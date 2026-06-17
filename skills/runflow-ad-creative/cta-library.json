@@ -1,0 +1,33 @@
+{
+  "_comment": "Categorized CTA suggestions surfaced by the skill during the copy step. Match the intent (try / buy / book / apply / learn / watch / read) against the user's brief or pick from a labelled menu. Each entry is 1-3 words to fit ad CTA buttons. Sentence case throughout.",
+  "intents": {
+    "try-first": {
+      "description": "Free try, no commitment. Common for SaaS, tools, marketplaces.",
+      "options": ["Try Runflow", "Start free", "Get started", "Try free", "Start now"]
+    },
+    "buy": {
+      "description": "Direct purchase intent. E-commerce, paid products.",
+      "options": ["Buy now", "Shop the collection", "Add to cart", "Order now", "Shop now"]
+    },
+    "book": {
+      "description": "Sales conversation, demo, consultation.",
+      "options": ["Book a demo", "Book a call", "Get a quote", "Talk to sales", "Schedule a call"]
+    },
+    "apply": {
+      "description": "Form-based qualification. Contests, programs, waitlists.",
+      "options": ["Apply now", "Get on the list", "Join the program", "Submit entry", "Enter to win"]
+    },
+    "learn": {
+      "description": "Soft top-of-funnel, content download or longer read.",
+      "options": ["See how", "See the data", "Read the case study", "Learn more", "Get the guide"]
+    },
+    "watch": {
+      "description": "Video-led demo or product walkthrough.",
+      "options": ["Watch the demo", "See it live", "Watch now"]
+    },
+    "read": {
+      "description": "Blog post, article, or report.",
+      "options": ["Read the post", "Read more", "Read the report"]
+    }
+  }
+}
