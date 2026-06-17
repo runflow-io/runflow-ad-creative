@@ -154,13 +154,20 @@ def resolve_image_input(hero: str) -> str:
     return upload(hero)
 
 
-def build_prompt(headline, subhead, cta, audience, tone, primary_color, typeface, extra=""):
+def build_prompt(headline, subhead, cta, audience, tone, primary_color, typeface, aspect_ratio, extra=""):
     # NOTE on typography phrasing: do NOT write "Use the typography of: <name>" —
     # gpt_image_2 treats that label/value shape the same as "Headline text: X" and
     # renders the typeface name (e.g. "Couture") as visible copy in the ad. We use
     # "in a typeface visually similar to X" plus an explicit negative guard.
+    #
+    # NOTE on aspect ratio: the structured `aspect_ratio` field passed to the workflow
+    # alone is not enough — the layout stage was producing letterboxed outputs where
+    # a 16:9 ad block sat in the middle of a 9:16 canvas with the wordmark floating
+    # alone in the unused top section. Repeating the canvas ratio in the prompt text
+    # and adding an explicit fill-the-canvas rule fixes the regression.
     base = (
         "Produce a brand-locked ad variant from the provided primary design reference. "
+        f"Canvas: {aspect_ratio}. "
         f"Headline text: \"{headline}\". "
         f"Subhead text: \"{subhead}\". "
         f"Call to action: \"{cta}\". "
@@ -170,7 +177,13 @@ def build_prompt(headline, subhead, cta, audience, tone, primary_color, typeface
         f"do not include the word \"{typeface}\" anywhere in the image. "
         f"Visual tone: {tone}. "
         "Place the provided logo in a prominent corner safe zone. "
-        "Preserve the focal subject from the primary design reference. "
+        "Preserve the focal subject from the primary design reference, "
+        f"recomposing it for the {aspect_ratio} canvas if the source crop differs. "
+        f"Compose the entire layout to fill the {aspect_ratio} canvas edge to edge. "
+        "Do not letterbox, do not leave black or empty bars, do not pad with floating "
+        "duplicate brand marks. The hero, copy stack, and logo lock-up must all sit "
+        f"within the requested {aspect_ratio} frame with deliberate margins, never as a "
+        "smaller block centered in unused space. "
         "The only visible text must be the headline, subhead, and call-to-action specified above; "
         "no extra copy, no eyebrows, no taglines. "
         "Avoid warped text or floating overlays."
@@ -291,16 +304,21 @@ def main():
 
     hero_url = resolve_image_input(args.hero)
 
-    prompt = build_prompt(
-        headline=args.headline,
-        subhead=args.subhead,
-        cta=args.cta,
-        audience=args.audience,
-        tone=args.tone,
-        primary_color=kit.get("primary_color", "#09090B"),
-        typeface=kit.get("typeface", "Outfit"),
-        extra=args.extra,
-    )
+    # Build a per-aspect prompt so the canvas ratio is anchored inside the prompt
+    # text, not just in the structured `aspect_ratio` field. Fixes the letterbox
+    # regression where a 16:9 ad block was being centered in a 9:16 canvas.
+    def prompt_for(aspect):
+        return build_prompt(
+            headline=args.headline,
+            subhead=args.subhead,
+            cta=args.cta,
+            audience=args.audience,
+            tone=args.tone,
+            primary_color=kit.get("primary_color", "#09090B"),
+            typeface=kit.get("typeface", "Outfit"),
+            aspect_ratio=aspect,
+            extra=args.extra,
+        )
 
     # Pre-flight credit check. Block firing if balance won't cover the estimated total.
     credits = check_credits(len(formats))
@@ -326,7 +344,7 @@ def main():
         futures = {
             ex.submit(
                 run_one_format,
-                f"fmt-{aspect}", hero_url, logo_url, aspect, prompt, args.client_ref,
+                f"fmt-{aspect}", hero_url, logo_url, aspect, prompt_for(aspect), args.client_ref,
             ): aspect
             for aspect in formats
         }
