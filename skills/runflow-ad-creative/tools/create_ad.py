@@ -155,6 +155,10 @@ def resolve_image_input(hero: str) -> str:
 
 
 def build_prompt(headline, subhead, cta, audience, tone, primary_color, typeface, extra=""):
+    # NOTE on typography phrasing: do NOT write "Use the typography of: <name>" —
+    # gpt_image_2 treats that label/value shape the same as "Headline text: X" and
+    # renders the typeface name (e.g. "Couture") as visible copy in the ad. We use
+    # "in a typeface visually similar to X" plus an explicit negative guard.
     base = (
         "Produce a brand-locked ad variant from the provided primary design reference. "
         f"Headline text: \"{headline}\". "
@@ -162,10 +166,13 @@ def build_prompt(headline, subhead, cta, audience, tone, primary_color, typeface
         f"Call to action: \"{cta}\". "
         f"Audience: {audience}. "
         f"Primary brand color: {primary_color}. "
-        f"Use the typography of: {typeface}. "
+        f"Render all text in a typeface visually similar to {typeface}; "
+        f"do not include the word \"{typeface}\" anywhere in the image. "
         f"Visual tone: {tone}. "
         "Place the provided logo in a prominent corner safe zone. "
         "Preserve the focal subject from the primary design reference. "
+        "The only visible text must be the headline, subhead, and call-to-action specified above; "
+        "no extra copy, no eyebrows, no taglines. "
         "Avoid warped text or floating overlays."
     )
     if extra:
