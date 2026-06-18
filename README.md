@@ -6,13 +6,18 @@ Powered by Runflow's `brand-locked-variant-nux` ComfyUI workflow on the back end
 
 ## Install
 
+Two slash commands. The first registers this repo as a Claude Code plugin marketplace; the second installs the plugin from it.
+
 ```
-/plugin install runflow-io/runflow-ad-creative
+/plugin marketplace add runflow-io/runflow-ad-creative
+/plugin install runflow-ad-creative@runflow-ad-creative
 ```
 
-Works in Claude Code (CLI, desktop, IDE extensions) and Claude.ai web.
+Then `/reload-plugins` to activate. Works in Claude Code (CLI, desktop, IDE extensions) and Claude.ai web.
 
-To update later: `/plugin update runflow-ad-creative`.
+Desktop app users can do the same flow through **Settings → Capabilities → Plugins → Add marketplace** (paste `runflow-io/runflow-ad-creative`), then install `runflow-ad-creative` from the marketplace list.
+
+To update later: `/plugin update runflow-ad-creative@runflow-ad-creative`.
 
 ## What you get
 
