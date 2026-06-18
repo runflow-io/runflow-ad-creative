@@ -2,24 +2,18 @@
 version: 0.1.0
 name: runflow-ad-creative
 description: |
-  Generate brand-locked ad creatives by calling Runflow's `runflow-access/brand-locked-variant-nux`
-  ComfyUI workflow. Loads a saved brand kit (logo, colors, typeface, default tone), uploads a hero
-  image, fires one parallel run per requested aspect ratio, returns a numbered table of variant
-  URLs, and asks the user which to push live.
+  Generate brand-locked ad creatives via Runflow's `runflow-access/brand-locked-variant-nux`
+  ComfyUI workflow. Loads a saved brand kit (logo, colors, typeface, tone), uploads a hero image,
+  fires one parallel run per aspect ratio, returns a numbered table, asks which to push live.
 
-  TRIGGER ONLY when the user explicitly says one of:
-  - "make a Runflow ad", "create ads with Runflow", "run the Runflow ad workflow"
-  - "brand-locked variant", "brand locked variant", "brand-locked ad"
-  - "iterate this winning ad with Runflow", "rerun this creative through Runflow"
-  - "Runflow ad creative" / "Runflow brand kit ad"
-  OR the user pastes a hero image AND mentions BOTH "Runflow" and "ad" in the same turn.
+  TRIGGER ONLY on explicit phrasing like "make a Runflow ad", "create ads with Runflow",
+  "brand-locked variant", "iterate this winning ad with Runflow", or "Runflow ad creative", OR
+  a hero image plus both "Runflow" and "ad" in the same turn.
 
-  Do NOT trigger for:
-  - Generic "make an ad" with no Runflow mention (use higgsfield-product-photoshoot for product/scene composition).
-  - Video / TikTok video ads — different pipeline, this workflow is static images only.
-  - "Update brand kit" / brand-kit management without an actual ad to generate.
-  - Iterating an Adspirer winning ad without an explicit intent to publish a Runflow variant.
-  - Generic "use the Runflow API" requests — that's the `runflow` skill.
+  Do NOT trigger for: generic "make an ad" with no Runflow mention (defer to other ad tools),
+  video ads (this skill is static images only), brand-kit management without an actual ad,
+  Adspirer winning-ad iteration without a Runflow publish intent, or generic Runflow API
+  questions (use the `runflow` skill).
 argument-hint: "[brand=<slug>] [platform=<name>] [hero=<path>]"
 allowed-tools: Bash, Read, Write, Edit
 ---
@@ -36,51 +30,94 @@ suggestions, and a final "which goes live?" selection step.
 The skill needs a Runflow API key. Resolution order:
 
 1. `RUNFLOW_API_KEY` env var.
-2. `~/.config/runflow/credentials.json` (created by the auth helper, see below).
+2. `~/.config/runflow/credentials.json` (created by the helpers below).
 
-If neither exists, run the auth helper. Do not silently read project `.env` files —
-that path is opaque to a public user and creates surprise behavior. It opens
-`https://app.runflow.io/connect/api-key` in the user's browser with the right name
-and scopes pre-selected, then captures the issued key on a local loopback port
-(default 5180) and writes it to `~/.config/runflow/credentials.json` with `0600`
-perms. Run from the skill directory:
+**If neither exists, ALWAYS do the prompted-link flow first. Never skip auth
+silently and never punt straight to "you'll have to do this on your desktop."
+Show the user the link, ask them to open it, take the key back.**
+
+### Default flow (works in every environment, Cowork included)
+
+This is the path you use whether you are in Claude Code, Claude Cowork, claude.ai
+web, or any sandboxed agent environment. It does not need a browser of its own or
+a local port — the user opens the link in their own browser.
+
+1. Print the connect URL plus the scope checklist by running:
+
+   ```bash
+   python3 tools/save_api_key.py --print-only
+   ```
+
+   The output tells the user exactly which link to open, the eleven scopes to
+   tick, and what the issued key will look like. Surface this output to the user
+   verbatim — do not paraphrase the URL or the scope list.
+
+2. Add a one-line ask in your own voice on top, e.g.:
+
+   > "I need a Runflow API key first. Open the link above, sign in if you have
+   > not already, click **Create new key**, leave the scopes preselected, then
+   > paste the issued key back here."
+
+3. Wait for the user to paste the key. The key starts with `rfk_`.
+
+4. Persist it:
+
+   ```bash
+   python3 tools/save_api_key.py --key <KEY>
+   ```
+
+   That writes `~/.config/runflow/credentials.json` with `0600` permissions.
+   If you are running inside a sandbox whose home directory is NOT the user's
+   real home (e.g. Claude Cowork), the `--print-only` output also gives them a
+   bash one-liner to save the key on their own desktop instead. Show that one-
+   liner explicitly in that case.
+
+5. Verify reachability before any other step:
+
+   ```bash
+   curl -sS https://api.runflow.io/v1/health
+   ```
+
+   Expect `{"status":"ok",...}`. If this call fails because the sandbox cannot
+   reach `api.runflow.io`, switch into the **Sandboxed handoff mode** described
+   in Step 8 — you can still drive brand kit + copy prep here, you just cannot
+   fire the workflow run from this environment.
+
+### Optional automation (Claude Code on the user's own machine)
+
+When the agent IS running on the user's own desktop (Claude Code CLI, IDE
+extensions, native desktop), you may offer the automated flow instead:
 
 ```bash
-python3 .claude/skills/runflow-ad-creative/tools/get_api_key.py
+python3 tools/get_api_key.py
 ```
 
-Optional flags:
+It opens `https://app.runflow.io/connect/api-key` in the user's default browser
+with the same eleven scopes preselected, captures the issued key on a local
+loopback port (default 5180), and writes the same `~/.config/runflow/credentials.json`.
 
-- `--name "<label>"` — what shows on the connect page and in the Runflow dashboard
-  (default: `Runflow Ad Builder`).
+Flags:
+
+- `--name "<label>"` — what shows on the connect page (default: `Runflow Ad Builder`).
 - `--scopes runs:create,runs:read,...` — override the preselected scope list.
 - `--port 5180` — change the loopback port if 5180 is taken.
-- `--no-open` — print the URL only (useful in headless sessions; paste it into
-  any browser, the redirect still hits the local listener).
+- `--no-open` — print the URL only, do not auto-open the browser.
 - `--force` — overwrite an existing credentials file.
 
-Default scopes the helper requests (all preselected on the connect page):
+Default scopes the helpers request (all preselected on the connect page):
 `runs:create`, `runs:read`, `runs:execute`, `assets:create`, `assets:read`,
 `assets:edit`, `comfyui-workflows:read`, `evaluations:create`, `evaluations:read`,
 `evaluations:edit`, `credit_balance:read`. Destructive scopes (`*:delete`,
-`comfyui-workflows:create/edit/delete`) are intentionally not requested — re-run
-with `--scopes` if a future operation needs them.
+`comfyui-workflows:create/edit/delete`) are intentionally not requested.
 
-`credit_balance:read` powers a pre-flight check in `create_ad.py`: before firing
-runs in parallel, it fetches the balance and compares to a conservative estimate
-of `len(formats) * $0.10`. If the balance won't cover the estimate, the script
-exits with code 3 and prints `CREDITS_LOW` + the exact balance/estimate. Surface
-that to the user with a clear "your balance is $X, this needs ~$Y — top up here:
-https://app.runflow.io/billing" message before retrying. If the scope is missing
-on older keys, the check is silently skipped so the run can still proceed.
+### Why `credit_balance:read`
 
-Once the key is in env or in the credentials file, verify reachability:
-
-```bash
-curl -sS https://api.runflow.io/v1/health
-```
-
-Expect `{"status":"ok",...}`.
+It powers a pre-flight check in `create_ad.py`: before firing runs in parallel,
+the script fetches the balance and compares it to a conservative estimate of
+`len(formats) * $0.10`. If the balance will not cover the estimate, the script
+exits with code 3 and prints `CREDITS_LOW` plus the exact balance and estimate.
+Surface that to the user with a clear "your balance is $X, this needs ~$Y. Top
+up at https://app.runflow.io/billing" message before retrying.
 
 ## Step 1 — Resolve the brand kit
 
@@ -349,6 +386,100 @@ When the user replies with selection:
 4. Do NOT auto-push to ad platforms in v1. If the user asks to push, escalate to whichever
    ad-platform MCP fits (Meta Ads / Google Ads / TikTok via Windsor or Adspirer) — confirm
    first.
+
+## Step 8 — Sandboxed handoff mode (Cowork, claude.ai web, headless agents)
+
+This mode applies whenever the agent has confirmed that `api.runflow.io` is not
+reachable from its environment (the Step 0 health-check failed). The skill can
+still do useful work — it just cannot fire the workflow run from here.
+
+What you DO in this mode:
+
+1. **Still do Step 0 auth, with the prompted-link flow.** Show the user the
+   connect URL and ask them to open it. They paste the key back. You give them
+   the bash one-liner from `save_api_key.py --print-only` so they save the key
+   on their own desktop (not in your sandbox).
+2. **Still do Step 1 brand-kit setup.** Auto-scan their website if possible;
+   otherwise walk through the manual questions. Output the brand-kit JSON inline
+   and tell the user to save it to `~/.config/runflow/brand-kits/<slug>.json` on
+   their desktop.
+3. **Still do Step 2 hero image selection.** Take the local path or URL from the
+   user — DO NOT try to upload it from the sandbox.
+4. **Still do Step 3 copy.** Offer the drafting flow, take their copy, lint it
+   with `tools/lint_copy.py`. If there are blocking violations, fix them with
+   the user before you produce the runpack.
+5. **Still do Step 4 tone and Step 5 platform → format.** Lock the inputs.
+6. **DO NOT** fire `create_ad.py` from here. The HTTP calls will fail.
+7. **Produce a runpack** — one markdown file the user takes to their desktop.
+
+### Runpack format
+
+The runpack is a single markdown file with everything needed to run the skill
+locally:
+
+````markdown
+# Runflow ad runpack — <YYYY-MM-DD HH:MM>
+
+## 1. Save your API key (skip if already done)
+
+```bash
+mkdir -p ~/.config/runflow && \
+  echo '{"api_key":"<KEY_FROM_STEP_0>","name":"Runflow Ad Builder"}' \
+  > ~/.config/runflow/credentials.json && \
+  chmod 600 ~/.config/runflow/credentials.json
+```
+
+## 2. Save the brand kit (skip if already in place)
+
+```bash
+mkdir -p ~/.config/runflow/brand-kits && \
+  cat > ~/.config/runflow/brand-kits/<slug>.json <<'JSON'
+<paste the brand-kit JSON from Step 1>
+JSON
+```
+
+## 3. Run the generation locally
+
+```bash
+python3 ~/.claude/skills/runflow-ad-creative/tools/create_ad.py \
+  --brand <slug> \
+  --hero "<local-path-or-url>" \
+  --headline "<H>" \
+  --subhead "<S>" \
+  --cta "<C>" \
+  --tone "<tone>" \
+  --audience "<short audience descriptor>" \
+  --formats <comma-separated ratios>
+```
+
+## 4. Estimated cost
+
+<formats × ~$0.06 ≈ total USD>
+
+## 5. After it runs
+
+The script prints a numbered table of variants. Paste that table back to your
+agent and say "I want 1 and 3" (or "all" / "none"). Your agent will route
+positive/negative feedback to the auto-generated Sentinel evals and download
+the picks to `~/Downloads/runflow-ads/<timestamp>/`.
+````
+
+Hand the runpack to the user with a one-line summary: "Run this on your
+desktop — `~/Downloads/runflow-ad-runpack.md` — then paste the results back
+to me and I'll continue."
+
+### Why bother prepping in sandbox mode
+
+Two reasons:
+
+1. **Lint is the same.** The voice-DNA lint runs offline; catching banned vocab
+   here saves the user from re-running on their desktop because of `streamline`
+   in the headline.
+2. **Brand-kit setup is the same.** Discovery and the question flow do not need
+   the Runflow API. Done once here, the user has it forever.
+
+The only step that genuinely cannot run in the sandbox is the workflow run
+itself. Everything else, do here.
 
 ## UX rules
 
