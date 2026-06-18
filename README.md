@@ -6,18 +6,31 @@ Powered by Runflow's `brand-locked-variant-nux` ComfyUI workflow on the back end
 
 ## Install
 
-Two slash commands. The first registers this repo as a Claude Code plugin marketplace; the second installs the plugin from it.
+Pick the path that matches your environment.
+
+### Claude Code (CLI, VS Code, JetBrains, terminal)
+
+Two slash commands. The first registers this repo as a plugin marketplace; the second installs the plugin from it.
 
 ```
 /plugin marketplace add runflow-io/runflow-ad-creative
 /plugin install runflow-ad-creative@runflow-ad-creative
 ```
 
-Then `/reload-plugins` to activate. Works in Claude Code (CLI, desktop, IDE extensions) and Claude.ai web.
+Then `/reload-plugins` to activate. Update later with `/plugin update runflow-ad-creative@runflow-ad-creative`.
 
-Desktop app users can do the same flow through **Settings → Capabilities → Plugins → Add marketplace** (paste `runflow-io/runflow-ad-creative`), then install `runflow-ad-creative` from the marketplace list.
+### Claude Cowork (desktop app, agentic mode) and claude.ai web
 
-To update later: `/plugin update runflow-ad-creative@runflow-ad-creative`.
+These environments do not accept GitHub marketplaces. Upload a `.skill` bundle instead.
+
+1. Download the pre-built bundle: [`runflow-ad-creative.skill`](https://github.com/runflow-io/runflow-ad-creative/releases/latest/download/runflow-ad-creative.skill)
+2. In the Claude app, click the `+` button next to the message box → **Upload a skill** → pick the file.
+
+The skill lands under Personal skills. No restart needed.
+
+### Letting an AI agent install it for you
+
+If you ask an LLM (Claude itself, ChatGPT, anything else) to install the skill on your behalf, point it at [`AGENT_INSTALL.md`](AGENT_INSTALL.md). That file has explicit, environment-aware instructions any agent can follow without guessing.
 
 ## What you get
 

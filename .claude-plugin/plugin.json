@@ -1,12 +1,20 @@
 {
   "name": "runflow-ad-creative",
   "description": "Brand-locked ad creative generation as a Claude Code skill. Drop a hero image, pick a brand kit, get on-brand ad variants for every platform.",
-  "version": "0.2.3",
+  "version": "0.2.4",
   "author": {
     "name": "Runflow",
     "url": "https://www.runflow.io"
   },
   "homepage": "https://github.com/runflow-io/runflow-ad-creative",
   "license": "MIT",
-  "keywords": ["runflow", "ads", "brand", "comfyui", "image-generation", "claude-code", "skill"]
+  "keywords": [
+    "runflow",
+    "ads",
+    "brand",
+    "comfyui",
+    "image-generation",
+    "claude-code",
+    "skill"
+  ]
 }
