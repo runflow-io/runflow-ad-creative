@@ -11,7 +11,8 @@ Latest tag: see `https://github.com/runflow-io/runflow-ad-creative/releases/late
 
 | Environment | Install path | Where to look |
 |---|---|---|
-| **Claude Code** (CLI, VS Code, JetBrains, terminal) | Marketplace + plugin install (slash commands) | [Path A](#path-a--claude-code-marketplace--plugin) |
+| **Claude Code** — CLI, JetBrains, terminal | Marketplace + plugin install (slash commands) | [Path A](#path-a--claude-code-marketplace--plugin) |
+| **Claude Code** — VS Code extension | Manual copy into `.claude/skills/` (no `/plugin` support yet) | [Path C](#path-c--manual-install-vs-code-extension-or-any-environment-without-plugin) |
 | **Claude Cowork** (desktop app, agentic mode) | Upload `.skill` bundle via the `+ → Upload a skill` menu | [Path B](#path-b--claude-cowork-skill-upload) |
 | **claude.ai web** (browser, with Skills enabled) | Same as Cowork: upload the `.skill` bundle | [Path B](#path-b--claude-cowork-skill-upload) |
 | **Other LLM environments** | Tell the user the skill is Claude-specific. Do not attempt to port. | — |
@@ -74,6 +75,36 @@ It lands under their Personal skills. No restart needed in most builds.
 
 ---
 
+## Path C — Manual install (VS Code extension, or any environment without `/plugin`)
+
+The Claude Code VS Code extension does not yet support `/plugin marketplace add ...`. If the user runs Path A there, they get `/plugin isn't available in this environment.` Use this path instead.
+
+The skill is just a directory of plain files. Drop it into either the project's `.claude/skills/` (scoped to one repo) or the user's `~/.claude/skills/` (available everywhere). The harness picks it up on the next prompt — no restart, no slash command.
+
+Project-scoped install (recommended when the user is asking from inside a specific repo):
+
+```bash
+git clone --depth=1 https://github.com/runflow-io/runflow-ad-creative.git /tmp/runflow-ad-creative
+mkdir -p <project-root>/.claude/skills
+rm -rf <project-root>/.claude/skills/runflow-ad-creative  # remove any stale folder
+cp -R /tmp/runflow-ad-creative/skills/runflow-ad-creative <project-root>/.claude/skills/
+```
+
+User-scoped install (available across every project):
+
+```bash
+git clone --depth=1 https://github.com/runflow-io/runflow-ad-creative.git /tmp/runflow-ad-creative
+mkdir -p ~/.claude/skills
+rm -rf ~/.claude/skills/runflow-ad-creative
+cp -R /tmp/runflow-ad-creative/skills/runflow-ad-creative ~/.claude/skills/
+```
+
+Update path: re-run the same clone-then-copy. Brand kits live under `~/.config/runflow/brand-kits/`, outside the skill directory, so they survive the overwrite.
+
+If you see a leftover `runflow-ad-creative/` folder from a previous install that only contains `tools/__pycache__/*.pyc` and no `SKILL.md`, that's a stale install from an earlier version — delete it before copying, or the harness will fail to register the skill.
+
+---
+
 ## Skill triggers
 
 The skill is deliberately narrow on trigger phrasing so it does not clash with other ad-creative tools. It activates on:
@@ -116,12 +147,25 @@ No third-party APIs, no telemetry, no analytics.
 
 ### Quick automated sanity check
 
+The tools build URLs from module-level constants (`API = "https://api.runflow.io/v1"`) and pass them to `urllib.request.Request(...)`, so the URL literal lives on a different line than the `urlopen` call. The earlier `urlopen|http.client` pre-filter missed those literals entirely. Just grep every hardcoded URL in the tools directory:
+
 ```bash
-grep -rn -E "urlopen|http\.client|urllib\.request\.urlopen" skills/runflow-ad-creative/tools/ \
-  | grep -oE "https?://[a-zA-Z0-9./_:-]+" \
-  | sort -u
-# Expected output is only api.runflow.io URLs.
+grep -rohE "https?://[a-zA-Z0-9./_:-]+" skills/runflow-ad-creative/tools/ | sort -u
 ```
+
+Expected output (and nothing else):
+
+```
+http://localhost:
+https://api.runflow.io/v1
+https://app.runflow.io
+https://app.runflow.io/connect/api-key
+https://app.runflow.io/settings/api-keys
+https://example.com
+https://www.runflow.io
+```
+
+`example.com` is a docstring placeholder; `localhost` is the OAuth loopback. Everything else is `*.runflow.io`. If the grep returns any other domain, stop and inspect.
 
 Hard-coded URLs in the tools:
 - `https://api.runflow.io/v1` (constant `API` in `tools/create_ad.py`, `tools/feedback.py`)
