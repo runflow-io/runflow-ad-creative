@@ -220,35 +220,11 @@ def poll_until_terminal(run_id, label, max_wait_s=600, interval_s=3):
     return "timeout", None
 
 
-def submit_evaluation(image_url: str, prompt: str, aspect: str) -> str:
-    """Submit a variant for Sentinel quality scoring. Returns the evaluation_id, or "" on failure."""
-    body = {
-        "generated_image_url": image_url,
-        "task_type": "ad_creative",
-        "task_description": (
-            "Brand-locked static ad variant produced via the runflow-access/"
-            "brand-locked-variant-nux ComfyUI workflow."
-        ),
-        "generation_prompt": prompt,
-        "evaluation_instructions": (
-            "Score for: brand wordmark fidelity, headline + subhead text rendering "
-            "(no typos / no kerning slips), model or hero preservation, layout balance "
-            "for the requested aspect ratio, palette discipline."
-        ),
-        "input_attributes": {"aspect_ratio": aspect},
-    }
-    try:
-        resp = api_req("POST", f"{API}/evaluations", body=body)
-    except SystemExit as e:
-        print(f"EVAL[{aspect}] submit_failed {e}", flush=True)
-        return ""
-    eid = resp.get("id") or resp.get("evaluation_id") or ""
-    if eid:
-        print(f"EVAL[{aspect}] submitted id={eid}", flush=True)
-    return eid
-
-
 def run_one_format(label, hero_url, logo_url, aspect, prompt, client_ref):
+    # NOTE: as of 2026-06-18 (Miguel's Sentinel update), every ComfyUI workflow run
+    # auto-generates a Sentinel evaluation tied to the run. We no longer POST our own
+    # evaluation — feedback.py looks the auto-eval up by run_id when the user picks
+    # which variants go live.
     try:
         rid = create_run(hero_url, logo_url, aspect, prompt, client_ref)
     except SystemExit as e:
@@ -264,11 +240,7 @@ def run_one_format(label, hero_url, logo_url, aspect, prompt, client_ref):
     out = (run.get("output") or {}).get("outputs", [])
     url = out[0]["url"] if out else ""
     print(f"RUN[{aspect}] succeeded url={url}", flush=True)
-    result = {"aspect": aspect, "status": "succeeded", "run_id": rid, "url": url}
-    if url:
-        # Sentinel scoring is free for ComfyUI workflow outputs — always submit.
-        result["evaluation_id"] = submit_evaluation(url, prompt, aspect)
-    return result
+    return {"aspect": aspect, "status": "succeeded", "run_id": rid, "url": url}
 
 
 def main():
