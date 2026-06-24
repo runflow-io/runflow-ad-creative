@@ -193,7 +193,7 @@ def build_prompt(headline, subhead, cta, audience, tone, primary_color, typeface
     return base
 
 
-def create_run(hero_url, logo_url, aspect, prompt, client_ref):
+def create_run(hero_url, logo_url, aspect, prompt, client_ref, metadata=None):
     body = {
         "input": {
             "primary_design_ref": hero_url,
@@ -203,7 +203,13 @@ def create_run(hero_url, logo_url, aspect, prompt, client_ref):
             "aspect_ratio": aspect,
             "prompt": prompt,
         },
-        "client_ref": f"{client_ref}-{aspect}",
+        # Shared batch token (NOT per-aspect): the asset-validation page pulls the
+        # whole batch via GET /v1/runs?q=client_ref.EQ:'<token>'. The runs API only
+        # supports exact-match filtering, so every run in a batch must share it.
+        "client_ref": client_ref,
+        # Free-form tagging (campaign / batch / aspect). Stored on the run and shown
+        # in the single-run view; not filterable in the list API yet, but future-proof.
+        "metadata": metadata or {},
     }
     resp = api_req("POST", f"{API}/comfyui-workflows/{WORKFLOW}/runs", body=body)
     return resp.get("run_id") or resp.get("id")
@@ -220,13 +226,13 @@ def poll_until_terminal(run_id, label, max_wait_s=600, interval_s=3):
     return "timeout", None
 
 
-def run_one_format(label, hero_url, logo_url, aspect, prompt, client_ref):
+def run_one_format(label, hero_url, logo_url, aspect, prompt, client_ref, metadata=None):
     # NOTE: as of 2026-06-18 (Miguel's Sentinel update), every ComfyUI workflow run
     # auto-generates a Sentinel evaluation tied to the run. We no longer POST our own
     # evaluation — feedback.py looks the auto-eval up by run_id when the user picks
     # which variants go live.
     try:
-        rid = create_run(hero_url, logo_url, aspect, prompt, client_ref)
+        rid = create_run(hero_url, logo_url, aspect, prompt, client_ref, metadata)
     except SystemExit as e:
         return {"aspect": aspect, "status": "create_failed", "error": str(e)}
     print(f"RUN[{aspect}] queued id={rid}", flush=True)
@@ -256,8 +262,19 @@ def main():
     p.add_argument("--extra", default="",
                    help="optional freeform sentence appended to the prompt (use for "
                         "styling overrides like 'render the headline in pure white').")
-    p.add_argument("--client-ref", default="runflow-ad-creative")
+    p.add_argument("--campaign", default="",
+                   help="optional campaign name; tags the batch so the asset-validation "
+                        "page (and later the Runflow app) can filter by it.")
+    p.add_argument("--client-ref", default=None,
+                   help="shared batch token written as client_ref on every run in this "
+                        "invocation; the asset-validation page filters by it. "
+                        "Auto-generated from the campaign + a timestamp if omitted.")
     args = p.parse_args()
+
+    # One shared batch token for the whole invocation. Every run carries it as
+    # client_ref so the asset-validation page can load the exact batch by EQ filter.
+    camp_slug = "-".join((args.campaign or "").lower().split())
+    batch_ref = args.client_ref or f"adval-{camp_slug or 'adhoc'}-{int(time.time() * 1000)}"
 
     formats = [f.strip() for f in args.formats.split(",") if f.strip()]
     invalid = [f for f in formats if f not in ALLOWED_RATIOS]
@@ -316,7 +333,8 @@ def main():
         futures = {
             ex.submit(
                 run_one_format,
-                f"fmt-{aspect}", hero_url, logo_url, aspect, prompt_for(aspect), args.client_ref,
+                f"fmt-{aspect}", hero_url, logo_url, aspect, prompt_for(aspect), batch_ref,
+                {"campaign": args.campaign, "batch_id": batch_ref, "aspect": aspect, "source": "claude-cli"},
             ): aspect
             for aspect in formats
         }
@@ -330,6 +348,11 @@ def main():
     print()
     print("RESULTS:")
     print(json.dumps(results, indent=2))
+    print()
+    # Link the user opens to validate this exact batch (like/dislike → goes-live picks).
+    import urllib.parse as _url
+    _qs = f"ref={batch_ref}" + (f"&campaign={_url.quote(args.campaign)}" if args.campaign else "")
+    print(f"VALIDATION_URL: https://templates.runflow.io/asset-validation/?{_qs}")
 
 
 if __name__ == "__main__":
