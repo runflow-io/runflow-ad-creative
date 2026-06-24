@@ -419,6 +419,31 @@ When the user replies with selection:
    ad-platform MCP fits (Meta Ads / Google Ads / TikTok via Windsor or Adspirer) — confirm
    first.
 
+## Step 7b — Iterate from validation feedback (prompt expansion)
+
+When the user comes back with per-image notes from the validation page, do NOT regenerate
+blind — fold the feedback into the prompt so the next batch is better:
+
+1. **Translate each note into a concrete visual instruction** and pass them via `--extra`
+   on the next `create_ad.py` run. Examples:
+   - "highlight the action words of the headline in amber `#F59E0B`, rest white on dark"
+   - "render the 'Run' wordmark in white on dark backgrounds — never black-on-black"
+   - "CTA button: amber fill with ink (`#09090B`) text, not white text"
+   - "clean, modern background; no dated 90s tech-grid / wireframe look"
+2. **Then ASK the user** whether to save the recurring ones into their brand guideline file
+   so they apply to EVERY future ad, not just this run:
+
+   > "Want me to add these to your Runflow brand guideline file so every future ad uses them?"
+
+   If yes, append them to the kit's **`prompt_guidelines`** field in
+   `~/.config/runflow/brand-kits/<slug>.json`. `create_ad.py` folds `prompt_guidelines` into
+   every prompt automatically (on top of per-run `--extra`), so the feedback compounds.
+
+This is how the skill "learns the brand from feedback" today: feedback → prompt expansion →
+persisted brand guidelines that improve every subsequent run. (If the model's baked text
+still can't hit an instruction exactly, say so — but persist the guideline anyway so the
+prompt keeps pushing toward it.)
+
 ## Step 8 — Sandboxed handoff mode (Cowork, claude.ai web, headless agents)
 
 This mode applies whenever the agent has confirmed that `api.runflow.io` is not

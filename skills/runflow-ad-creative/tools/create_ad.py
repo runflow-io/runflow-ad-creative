@@ -304,6 +304,12 @@ def main():
 
     kit = resolve_brand_kit(args.brand)
 
+    # Persistent brand guidelines learned from past validation feedback are folded into
+    # every prompt, on top of this run's --extra. This is how feedback compounds: the skill
+    # offers to save recurring notes into the kit's `prompt_guidelines`, and from then on
+    # every ad for this brand carries them.
+    prompt_extra = " ".join(s for s in [kit.get("prompt_guidelines", ""), args.extra] if s)
+
     # Resolve logo: prefer logo_url; else upload logo_path.
     logo_url = kit.get("logo_url")
     if not logo_url:
@@ -331,7 +337,7 @@ def main():
             primary_color=kit.get("primary_color", "#09090B"),
             typeface=kit.get("typeface", "Outfit"),
             aspect_ratio=aspect,
-            extra=args.extra,
+            extra=prompt_extra,
         )
 
     # Pre-flight credit check. Block firing if balance won't cover the estimated total.
