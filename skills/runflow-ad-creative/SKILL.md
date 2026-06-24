@@ -29,17 +29,16 @@ suggestions, and a final "which goes live?" selection step.
 
 These hold for **every** ad-visual request, no exceptions:
 
-1. **All ad visuals are produced by this skill's tools — never by hand.** Single
-   brand-locked variants come from `create_ad.py`; multi-panel explainer / how-it-works /
-   before-after / multi-format composites come from `compose_explainer.py`. Do NOT build
-   ad creatives in raw HTML, Canva, an image editor, or any path outside this skill. If a
-   format the skill cannot produce yet is requested, ADD a tool to the skill first, then
-   use it — never improvise a one-off outside the skill. (An ad made outside the skill is
-   not reproducible, not tagged, and never reaches the preview platform — defeating the point.)
+1. **All ad visuals are produced by this skill's tools — never by hand.** Brand-locked
+   variants come from `create_ad.py` (the NUX `brand-locked-variant-nux` workflow); when the
+   hero needs cleaning, `--remove-bg` runs background-removal first. Do NOT build ad creatives
+   in raw HTML, Canva, an image editor, or any path outside this skill. If a format the skill
+   cannot produce yet is requested, ADD a tool to the skill first, then use it — never
+   improvise a one-off outside the skill. (An ad made outside the skill is not reproducible,
+   not tagged, and never reaches the preview platform — defeating the point.)
 2. **Always present results on the dedicated preview platform** on the templates subdomain:
    `https://templates.runflow.io/asset-validation/`. `create_ad.py` prints a `VALIDATION_URL`
-   for the batch — surface that link as the deliverable. Explainer composites are published
-   there too (Step 7b). Never hand the user loose local files as the primary result; the
+   for the batch — surface that link as the deliverable. Never hand the user loose local files as the primary result; the
    templates-subdomain link is the result.
 3. The **headline action highlight** rule applies to every headline the skill renders:
    highlight the verb/action phrase in amber, the rest stays white-on-dark / ink-on-light.
@@ -419,33 +418,6 @@ When the user replies with selection:
 4. Do NOT auto-push to ad platforms in v1. If the user asks to push, escalate to whichever
    ad-platform MCP fits (Meta Ads / Google Ads / TikTok via Windsor or Adspirer) — confirm
    first.
-
-## Step 7b — Explainer / composite ad (skill-owned, never hand-built)
-
-When the ask is a "how it works" / input→output / before-after / multi-format showcase
-(not a single variant), build it with `compose_explainer.py`. Per Rule 1, never hand-build
-this in HTML or a design tool.
-
-1. First generate the variants with `create_ad.py` (Step 6) so you have the output images
-   (and a batch `client_ref` + `VALIDATION_URL`).
-2. Render the composite (one PNG per outer ratio):
-
-   ```bash
-   python3 .../tools/compose_explainer.py \
-     --hero "<input image path/url>" \
-     --variant "1:1 feed:<1:1 output path/url>" \
-     --variant "4:5 feed:<4:5 output path/url>" \
-     --headline "One product photo in, [[a full set of ads]] out." \
-     --subhead "Brand-locked and resized for every placement, in minutes." \
-     --formats 1:1,4:5 --out ~/Downloads/runflow-ads/<batch>-explainer
-   ```
-
-   - Wrap the headline's action phrase in `[[ ]]` so it renders amber (Rule 3).
-   - The frame is always Runflow-branded (ink + amber, Run/flow wordmark) regardless of the
-     product shown in the panels — the explainer is a Runflow ad, not the product's ad.
-3. Present on the preview platform (Rule 2). Composites are not workflow runs, so until the
-   asset-validation page renders composites natively, publish them as a static page under
-   the templates subdomain (`projects/<slug>/` in `runflow-templates`) and hand back that link.
 
 ## Step 8 — Sandboxed handoff mode (Cowork, claude.ai web, headless agents)
 
