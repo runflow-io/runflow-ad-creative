@@ -226,6 +226,23 @@ def poll_until_terminal(run_id, label, max_wait_s=600, interval_s=3):
     return "timeout", None
 
 
+def remove_background(image_url):
+    """Pre-clean a hero: run runflow/background-removal and return a signed cutout URL to
+    feed back as the workflow hero. Used ONLY when the user explicitly asks to cut the
+    background — otherwise the hero is used as provided."""
+    resp = api_req("POST", f"{API}/models/runflow/background-removal/runs",
+                   body={"input": {"image_url": image_url}})
+    rid = resp.get("run_id") or resp.get("id")
+    status, _ = poll_until_terminal(rid, "bg-removal")
+    if status != "succeeded":
+        sys.exit(f"background removal did not succeed: {status}")
+    signed = api_req("GET", f"{API}/runs/{rid}?add_signature=true")
+    urls = (signed.get("output") or {}).get("image_urls") or []
+    if not urls:
+        sys.exit("background removal returned no image")
+    return urls[0]
+
+
 def run_one_format(label, hero_url, logo_url, aspect, prompt, client_ref, metadata=None):
     # NOTE: as of 2026-06-18 (Miguel's Sentinel update), every ComfyUI workflow run
     # auto-generates a Sentinel evaluation tied to the run. We no longer POST our own
@@ -269,6 +286,10 @@ def main():
                    help="shared batch token written as client_ref on every run in this "
                         "invocation; the asset-validation page filters by it. "
                         "Auto-generated from the campaign + a timestamp if omitted.")
+    p.add_argument("--remove-bg", action="store_true",
+                   help="ONLY when the user asks to cut the hero's background: run the hero "
+                        "through runflow/background-removal first, then use the clean cutout as "
+                        "the workflow hero. Do not use it just because a hero was provided.")
     args = p.parse_args()
 
     # One shared batch token for the whole invocation. Every run carries it as
@@ -292,6 +313,10 @@ def main():
         logo_url = upload(logo_path)
 
     hero_url = resolve_image_input(args.hero)
+    if args.remove_bg:
+        print("REMOVE_BG running runflow/background-removal on the hero…", flush=True)
+        hero_url = remove_background(hero_url)
+        print("REMOVE_BG done — clean cutout is now the workflow hero", flush=True)
 
     # Build a per-aspect prompt so the canvas ratio is anchored inside the prompt
     # text, not just in the structured `aspect_ratio` field. Fixes the letterbox

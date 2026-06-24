@@ -224,6 +224,20 @@ Multiple heroes are allowed (re-run the skill per hero). For v1 a single hero is
 default — if the user pastes several, ask whether to generate one ad set per hero or
 pick one.
 
+### Background cutout (ONLY on request)
+
+If — and only if — the user explicitly asks to **cut / remove the hero's background**
+(not just because they handed you a hero), clean it first, then feed the cutout into the
+normal flow as the hero:
+
+- Pass `--remove-bg` to `create_ad.py`. It runs the hero through the Runflow
+  `runflow/background-removal` model, then uses the clean cutout as the hero for the
+  brand-locked-variant (NUX) workflow — so the workflow composes a proper branded scene
+  without the hero's original background bleeding in.
+- Do NOT cut the background by default. A plain "this is the hero" means use it as provided.
+- This is the "use the right workflow when the input needs it" rule: bg-removal is a hero
+  pre-clean step, not a separate ad builder.
+
 ## Step 3 — Copy stack
 
 ### 3a — Offer to draft (opt-in only)
@@ -432,37 +446,6 @@ this in HTML or a design tool.
 3. Present on the preview platform (Rule 2). Composites are not workflow runs, so until the
    asset-validation page renders composites natively, publish them as a static page under
    the templates subdomain (`projects/<slug>/` in `runflow-templates`) and hand back that link.
-
-## Step 7c — Deterministic overlay build (person / UGC heroes)
-
-When the hero is a person / UGC / talking-to-camera photo and brand fidelity matters
-(exact font, amber action-highlight, clean background), do NOT rely on the ComfyUI
-workflow to bake the text — it can't hit a specific font or colour specific words, and it
-keeps the hero's original background. **Chain workflows** instead, via `build_overlay_ad.py`:
-
-1. **Background-removal** — the tool runs the hero through the Runflow
-   `runflow/background-removal` model to get a clean transparent cutout (fixes busy /
-   uncut backgrounds). This is the "use the right workflow when the input needs it" rule.
-2. **Overlay compose** — it then composes the ad deterministically: cutout on the Runflow
-   brand background, headline pinned to the TOP in real **Outfit** with the **action phrase
-   in amber**, logo + CTA. One PNG per ratio.
-
-```bash
-python3 .../tools/build_overlay_ad.py \
-  --hero "<person photo>" \
-  --headline "Wait, it also [[learns your brand]]?" \
-  --subhead "Generate ads and train a mini brand model" \
-  --cta "See how" --formats 1:1,4:5 --out ~/Downloads/runflow-ads/<batch>-overlay
-```
-
-- Wrap the headline's action phrase in `[[ ]]` for the amber highlight (Rule 3).
-- `--cutout <file>` reuses an already-removed cutout instead of re-running bg-removal.
-- This is the path for UGC / person ad angles. The ComfyUI `create_ad.py` path stays for
-  when you want the model to generate a full scene/composition around a product.
-
-> Rule 2 reminder: overlay PNGs are not workflow runs, so until the asset-validation page
-> renders uploaded composites natively, publish them under the templates subdomain and hand
-> back that link.
 
 ## Step 8 — Sandboxed handoff mode (Cowork, claude.ai web, headless agents)
 
