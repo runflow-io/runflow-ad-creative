@@ -25,6 +25,24 @@ The workflow takes a hero image + brand logo + structured prompt and returns one
 per aspect ratio. This skill wraps it with brand-kit reuse, platform-aware format
 suggestions, and a final "which goes live?" selection step.
 
+## Non-negotiable rules
+
+These hold for **every** ad-visual request, no exceptions:
+
+1. **All ad visuals are produced by this skill's tools — never by hand.** Brand-locked
+   variants come from `create_ad.py` (the NUX `brand-locked-variant-nux` workflow); when the
+   hero needs cleaning, `--remove-bg` runs background-removal first. Do NOT build ad creatives
+   in raw HTML, Canva, an image editor, or any path outside this skill. If a format the skill
+   cannot produce yet is requested, ADD a tool to the skill first, then use it — never
+   improvise a one-off outside the skill. (An ad made outside the skill is not reproducible,
+   not tagged, and never reaches the preview platform — defeating the point.)
+2. **Always present results on the dedicated preview platform** on the templates subdomain:
+   `https://templates.runflow.io/asset-validation/`. `create_ad.py` prints a `VALIDATION_URL`
+   for the batch — surface that link as the deliverable. Never hand the user loose local files as the primary result; the
+   templates-subdomain link is the result.
+3. The **headline action highlight** rule applies to every headline the skill renders:
+   highlight the verb/action phrase in amber, the rest stays white-on-dark / ink-on-light.
+
 ## Step 0 — Bootstrap (auth)
 
 The skill needs a Runflow API key. Resolution order:
@@ -204,6 +222,20 @@ Ask `Where does the hero image come from?` with labeled options:
 Multiple heroes are allowed (re-run the skill per hero). For v1 a single hero is the
 default — if the user pastes several, ask whether to generate one ad set per hero or
 pick one.
+
+### Background cutout (ONLY on request)
+
+If — and only if — the user explicitly asks to **cut / remove the hero's background**
+(not just because they handed you a hero), clean it first, then feed the cutout into the
+normal flow as the hero:
+
+- Pass `--remove-bg` to `create_ad.py`. It runs the hero through the Runflow
+  `runflow/background-removal` model, then uses the clean cutout as the hero for the
+  brand-locked-variant (NUX) workflow — so the workflow composes a proper branded scene
+  without the hero's original background bleeding in.
+- Do NOT cut the background by default. A plain "this is the hero" means use it as provided.
+- This is the "use the right workflow when the input needs it" rule: bg-removal is a hero
+  pre-clean step, not a separate ad builder.
 
 ## Step 3 — Copy stack
 
